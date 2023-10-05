@@ -1,0 +1,22 @@
+name: Generate API
+
+runs:
+    using: "composite"
+    steps:
+      - name: Install gRPC
+        run: python3 -m pip install grpcio
+        shell: bash
+      - name: Install gRPC tools
+        run: python3 -m pip install grpcio-tools
+        shell: bash
+
+      - name: Initialize Git Submodules
+        run: git submodule init
+        shell: bash
+      - name: Update Git Submodules
+        run: git submodule update
+        shell: bash
+
+      - name: Generate api
+        run: make
+        shell: bash
