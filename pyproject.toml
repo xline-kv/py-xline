@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = 'py-xline is an official xline client sdk, written in Python.'
 readme = "README.md"
 requires-python = ">=3.7"
-license = "Apache 2.0"
+license = "Apache-2.0"
 keywords = []
 authors = [
   { name = "LingKa", email = "cnfty786@gmail.com" },
@@ -24,7 +24,10 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  "grpcio",
+  "grpcio-tools",
+]
 
 [project.urls]
 Documentation = "https://github.com/xline-kv/py-xline#readme"
@@ -32,7 +35,7 @@ Issues = "https://github.com/xline-kv/py-xline/issues"
 Source = "https://github.com/xline-kv/py-xline"
 
 [tool.hatch.version]
-path = "src/py_xline/__about__.py"
+path = "client/__about__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -63,7 +66,7 @@ dependencies = [
   "ruff>=0.0.243",
 ]
 [tool.hatch.envs.lint.scripts]
-typing = "mypy --install-types --non-interactive {args:src/py_xline tests}"
+typing = "mypy --install-types --non-interactive {args:client tests}"
 style = [
   "ruff {args:.}",
   "black --check --diff {args:.}",
@@ -117,11 +120,15 @@ ignore = [
   # Allow non-abstract empty methods in abstract base classes
   "B027",
   # Allow boolean positional values in function calls, like `dict.get(... True)`
-  "FBT003",
+  "FBT001", "FBT002", "FBT003",
   # Ignore checks for possible passwords
   "S105", "S106", "S107",
   # Ignore complexity
   "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+  # Ignore import sort
+  "I001", 
+  # Allow verable shadow
+  "A003",
 ]
 unfixable = [
   # Don't touch unused imports
@@ -139,16 +146,16 @@ ban-relative-imports = "all"
 "tests/**/*" = ["PLR2004", "S101", "TID252"]
 
 [tool.coverage.run]
-source_pkgs = ["py_xline", "tests"]
+source_pkgs = ["client", "tests"]
 branch = true
 parallel = true
 omit = [
-  "src/py_xline/__about__.py",
+  "client/__about__.py",
 ]
 
 [tool.coverage.paths]
-py_xline = ["src/py_xline", "*/py-xline/src/py_xline"]
-tests = ["tests", "*/py-xline/tests"]
+py_xline = ["client"]
+tests = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [
