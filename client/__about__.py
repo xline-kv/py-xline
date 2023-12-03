@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: Apache 2.0
 
-import sys
+"""Xline clients"""
 
-sys.path.append("./api/curp")
-
-sys.path.append("./api/xline")
+__version__ = "0.0.1"

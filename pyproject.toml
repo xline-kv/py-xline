@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
   "grpcio",
   "grpcio-tools",
+  "pytest-asyncio",
 ]
 
 [project.urls]
