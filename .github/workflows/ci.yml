@@ -21,7 +21,7 @@ jobs:
       run: pip install hatch
       
     - name: Run lint & fmt
-      run: hatch run lint:all
+      run: hatch run lint:all ./client
 
   test:
     name: Test Validation
