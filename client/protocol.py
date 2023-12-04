@@ -87,7 +87,7 @@ class ProtocolClient:
         """
         for futures in asyncio.as_completed([self.fast_round(cmd), self.slow_round(cmd)]):
             first, second = await futures
-            if isinstance(first, CommandResponse) and isinstance(second, bool):
+            if isinstance(first, CommandResponse) and second:
                 return (first, None)
             if isinstance(second, CommandResponse) and isinstance(first, SyncResponse):
                 return (second, first)
@@ -137,7 +137,7 @@ class ProtocolClient:
                     exe_err.inner.ParseFromString(cmd_result.error)
                     raise exe_err
             elif res.HasField("error"):
-                raise res.error
+                logging.info(res.error)
             else:
                 ok_cnt += 1
 

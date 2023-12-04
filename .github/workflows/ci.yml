@@ -19,6 +19,9 @@ jobs:
 
     - name: Install Hatch
       run: pip install hatch
+
+    - name: Generate API
+      uses: ./.github/workflows/protobuf
       
     - name: Run lint & fmt
       run: hatch run lint:all ./client
