@@ -4,6 +4,7 @@ from __future__ import annotations
 import grpc
 from client.protocol import ProtocolClient
 from client.kv import KvClient
+from client.watch import WatchClient
 from client.auth import AuthClient
 
 
@@ -13,14 +14,17 @@ class Client:
 
     Attributes:
         kv_client: Kv client
+        watch_client: Watch client
         auth_client: Auth client
     """
 
     kv_client: KvClient
+    watch_client: WatchClient
     auth_client: AuthClient
 
-    def __init__(self, kv: KvClient, auth: AuthClient) -> None:
+    def __init__(self, kv: KvClient, watch: WatchClient, auth: AuthClient) -> None:
         self.kv_client = kv
+        self.watch_client = watch
         self.auth_client = auth
 
     @classmethod
@@ -34,6 +38,7 @@ class Client:
         # TODO: Acquire the auth token
 
         kv_client = KvClient("client", protocol_client, "")
+        watch_client = WatchClient(channel)
         auth_client = AuthClient("client", protocol_client, channel, "")
 
-        return cls(kv_client, auth_client)
+        return cls(kv_client, watch_client, auth_client)
