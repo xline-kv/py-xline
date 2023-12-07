@@ -28,6 +28,7 @@ dependencies = [
   "grpcio",
   "grpcio-tools",
   "pytest-asyncio",
+  "passlib",
 ]
 
 [project.urls]
@@ -130,6 +131,8 @@ ignore = [
   "I001", 
   # Allow verable shadow
   "A003",
+  # Allow const use upercase
+  "N806",
 ]
 unfixable = [
   # Don't touch unused imports
