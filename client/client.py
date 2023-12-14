@@ -7,6 +7,7 @@ from client.kv import KvClient
 from client.lease import LeaseClient, LeaseIdGenerator
 from client.watch import WatchClient
 from client.auth import AuthClient
+from client.maintenance import MaintenanceClient
 
 
 class Client:
@@ -18,18 +19,23 @@ class Client:
         lease_client: Lease client
         watch_client: Watch client
         auth_client: Auth client
+        maintenance_client: Maintenance client
     """
 
     kv_client: KvClient
     lease_client: LeaseClient
     watch_client: WatchClient
     auth_client: AuthClient
+    maintenance_client: MaintenanceClient
 
-    def __init__(self, kv: KvClient, lease: LeaseClient, watch: WatchClient, auth: AuthClient) -> None:
+    def __init__(
+        self, kv: KvClient, lease: LeaseClient, watch: WatchClient, auth: AuthClient, maintenance: MaintenanceClient
+    ) -> None:
         self.kv_client = kv
         self.lease_client = lease
         self.watch_client = watch
         self.auth_client = auth
+        self.maintenance_client = maintenance
 
     @classmethod
     async def connect(cls, addrs: list[str]) -> Client:
@@ -46,5 +52,6 @@ class Client:
         lease_client = LeaseClient("client", protocol_client, channel, "", id_gen)
         watch_client = WatchClient(channel)
         auth_client = AuthClient("client", protocol_client, channel, "")
+        maintenance_client = MaintenanceClient(channel)
 
-        return cls(kv_client, lease_client, watch_client, auth_client)
+        return cls(kv_client, lease_client, watch_client, auth_client, maintenance_client)
