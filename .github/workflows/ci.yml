@@ -45,7 +45,7 @@ jobs:
         uses: ./.github/workflows/protobuf
 
       - name: Install Hatch
-        run: pip install hatch
+        run: pip install hatch==1.7.0
         
       - name: Start the cluster
         run: ./scripts/quick_start.sh
