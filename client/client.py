@@ -6,6 +6,7 @@ from client.protocol import ProtocolClient
 from client.kv import KvClient
 from client.lease import LeaseClient, LeaseIdGenerator
 from client.watch import WatchClient
+from client.lock import LockClient
 from client.auth import AuthClient
 from client.maintenance import MaintenanceClient
 
@@ -18,6 +19,7 @@ class Client:
         kv_client: Kv client
         lease_client: Lease client
         watch_client: Watch client
+        lock_client: Lock client
         auth_client: Auth client
         maintenance_client: Maintenance client
     """
@@ -25,15 +27,23 @@ class Client:
     kv_client: KvClient
     lease_client: LeaseClient
     watch_client: WatchClient
+    lock_client: LockClient
     auth_client: AuthClient
     maintenance_client: MaintenanceClient
 
     def __init__(
-        self, kv: KvClient, lease: LeaseClient, watch: WatchClient, auth: AuthClient, maintenance: MaintenanceClient
+        self,
+        kv: KvClient,
+        lease: LeaseClient,
+        watch: WatchClient,
+        lock: LockClient,
+        auth: AuthClient,
+        maintenance: MaintenanceClient,
     ) -> None:
         self.kv_client = kv
         self.lease_client = lease
         self.watch_client = watch
+        self.lock_client = lock
         self.auth_client = auth
         self.maintenance_client = maintenance
 
@@ -51,7 +61,8 @@ class Client:
         kv_client = KvClient("client", protocol_client, "")
         lease_client = LeaseClient("client", protocol_client, channel, "", id_gen)
         watch_client = WatchClient(channel)
+        lock_client = LockClient("client", protocol_client, channel, "", id_gen)
         auth_client = AuthClient("client", protocol_client, channel, "")
         maintenance_client = MaintenanceClient(channel)
 
-        return cls(kv_client, lease_client, watch_client, auth_client, maintenance_client)
+        return cls(kv_client, lease_client, watch_client, lock_client, auth_client, maintenance_client)
