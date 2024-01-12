@@ -9,6 +9,7 @@ from client.watch import WatchClient
 from client.lock import LockClient
 from client.auth import AuthClient
 from client.maintenance import MaintenanceClient
+from client.cluster import ClusterClient
 
 
 class Client:
@@ -22,6 +23,7 @@ class Client:
         lock_client: Lock client
         auth_client: Auth client
         maintenance_client: Maintenance client
+        cluster_client: Cluster client
     """
 
     kv_client: KvClient
@@ -30,6 +32,7 @@ class Client:
     lock_client: LockClient
     auth_client: AuthClient
     maintenance_client: MaintenanceClient
+    cluster_client: ClusterClient
 
     def __init__(
         self,
@@ -39,6 +42,7 @@ class Client:
         lock: LockClient,
         auth: AuthClient,
         maintenance: MaintenanceClient,
+        cluster: ClusterClient,
     ) -> None:
         self.kv_client = kv
         self.lease_client = lease
@@ -46,6 +50,7 @@ class Client:
         self.lock_client = lock
         self.auth_client = auth
         self.maintenance_client = maintenance
+        self.cluster_client = cluster
 
     @classmethod
     async def connect(cls, addrs: list[str]) -> Client:
@@ -64,5 +69,6 @@ class Client:
         lock_client = LockClient(protocol_client, channel, "", id_gen)
         auth_client = AuthClient(protocol_client, channel, "")
         maintenance_client = MaintenanceClient(channel)
+        cluster_client = ClusterClient(channel)
 
-        return cls(kv_client, lease_client, watch_client, lock_client, auth_client, maintenance_client)
+        return cls(kv_client, lease_client, watch_client, lock_client, auth_client, maintenance_client, cluster_client)
