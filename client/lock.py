@@ -1,6 +1,5 @@
 """Lock Client"""
 
-import uuid
 from urllib import parse
 from typing import Optional
 from grpc import Channel
@@ -45,25 +44,20 @@ class LockClient:
     Client for Lock operations.
 
     Attributes:
-        name: Name of the LockClient.
         curp_client: The client running the CURP protocol, communicate with all servers.
         lease_client: The lease client.
         watch_client: The watch client.
         token: Auth token
     """
 
-    name: str
     curp_client: CurpClient
     lease_client: LeaseClient
     watch_client: WatchClient
     token: Optional[str]
 
-    def __init__(
-        self, name: str, curp_client: CurpClient, channel: Channel, token: str, id_gen: LeaseIdGenerator
-    ) -> None:
-        self.name = name
+    def __init__(self, curp_client: CurpClient, channel: Channel, token: str, id_gen: LeaseIdGenerator) -> None:
         self.curp_client = curp_client
-        self.lease_client = LeaseClient(name=name, curp_client=curp_client, channel=channel, token=token, id_gen=id_gen)
+        self.lease_client = LeaseClient(curp_client=curp_client, channel=channel, token=token, id_gen=id_gen)
         self.watch_client = WatchClient(channel=channel)
         self.token = token
 
@@ -169,8 +163,7 @@ class LockClient:
         """
         Send request using fast path.
         """
-        propose_id = self.generate_propose_id()
-        cmd = Command(request=req, propose_id=propose_id)
+        cmd = Command(request=req)
 
         if use_fast_path:
             res = await self.curp_client.propose(cmd, True)
@@ -181,11 +174,6 @@ class LockClient:
                 msg = "syncResp is always Some when useFastPath is false"
                 raise Exception(msg)
             return res
-
-    def generate_propose_id(self) -> str:
-        """Generate propose id with the given prefix."""
-        propose_id = f"{self.name}-{uuid.uuid4()}"
-        return propose_id
 
     async def wait_delete(self, pfx: str, my_rev: int) -> None:
         """

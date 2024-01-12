@@ -1,6 +1,5 @@
 """Auth Client"""
 
-import uuid
 from typing import Optional
 import grpc
 from passlib.hash import pbkdf2_sha256
@@ -57,18 +56,16 @@ class AuthClient:
     Client for Auth operations.
 
     Attributes:
-        name: Name of the AuthClient, which will be used in CURP propose id generation.
         curp_client: The client running the CURP protocol, communicate with all servers.
+        auth_client: The auth RPC client, only communicate with one server at a time.
         token: The auth token.
     """
 
-    name: str
     curp_client: CurpClient
     auth_client: AuthStub
     token: Optional[str]
 
-    def __init__(self, name: str, curp_client: CurpClient, channel: grpc.Channel, token: Optional[str]) -> None:
-        self.name = name
+    def __init__(self, curp_client: CurpClient, channel: grpc.Channel, token: Optional[str]) -> None:
         self.curp_client = curp_client
         self.auth_client = AuthStub(channel=channel)
         self.token = token
@@ -262,8 +259,7 @@ class AuthClient:
         """
         Send request using fast path or slow path.
         """
-        propose_id = self.generate_propose_id()
-        cmd = Command(request=req, propose_id=propose_id)
+        cmd = Command(request=req)
 
         if use_fast_path:
             er, _ = await self.curp_client.propose(cmd, True)
@@ -274,11 +270,6 @@ class AuthClient:
                 msg = "sync_res is always Some when use_fast_path is false"
                 raise Exception(msg)
             return er
-
-    def generate_propose_id(self) -> str:
-        """Generate propose id with the given prefix."""
-        propose_id = f"{self.name}-{uuid.uuid4()}"
-        return propose_id
 
     @staticmethod
     def hash_password(password: str) -> str:

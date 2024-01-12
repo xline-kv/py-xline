@@ -1,6 +1,5 @@
 """Tests for the protocol client."""
 
-import uuid
 import pytest
 
 from api.xline.xline_command_pb2 import Command, RequestWithToken
@@ -22,7 +21,6 @@ async def test_propose_fast_path():
                 value=b"py-xline",
             )
         ),
-        propose_id=f"client-{uuid.uuid4()}",
     )
 
     er, _ = await client.propose(cmd, True)
@@ -43,7 +41,6 @@ async def test_propose_slow_path():
                 value=b"py-xline1",
             )
         ),
-        propose_id=f"client-{uuid.uuid4()}",
     )
 
     er, asr = await client.propose(cmd, False)
