@@ -1,6 +1,5 @@
 """Kv Client"""
 
-import uuid
 from typing import Optional, Literal
 from client.protocol import ProtocolClient as CurpClient
 from client.txn import Txn
@@ -32,12 +31,10 @@ class KvClient:
         token: The auth token.
     """
 
-    name: str
     curp_client: CurpClient
     token: Optional[str]
 
-    def __init__(self, name: str, curp_client: CurpClient, token: Optional[str]) -> None:
-        self.name = name
+    def __init__(self, curp_client: CurpClient, token: Optional[str]) -> None:
         self.curp_client = curp_client
         self.token = token
 
@@ -76,7 +73,6 @@ class KvClient:
             max_create_revision=max_create_revision,
         )
         key_ranges = [KeyRange(key=key, range_end=range_end)]
-        propose_id = generate_propose_id(self.name)
         request_with_token = RequestWithToken(
             range_request=req,
             token=self.token,
@@ -84,7 +80,6 @@ class KvClient:
         cmd = Command(
             keys=key_ranges,
             request=request_with_token,
-            propose_id=propose_id,
         )
         er, _ = await self.curp_client.propose(cmd, True)
         return er.range_response
@@ -105,7 +100,6 @@ class KvClient:
             key=key, value=value, lease=lease, prev_kv=prev_kv, ignore_value=ignore_value, ignore_lease=ignore_lease
         )
         key_ranges = [KeyRange(key=key, range_end=key)]
-        propose_id = generate_propose_id(self.name)
         request_with_token = RequestWithToken(
             put_request=req,
             token=self.token,
@@ -113,7 +107,6 @@ class KvClient:
         cmd = Command(
             keys=key_ranges,
             request=request_with_token,
-            propose_id=propose_id,
         )
         er, _ = await self.curp_client.propose(cmd, True)
         return er.put_response
@@ -128,7 +121,6 @@ class KvClient:
             prev_kv=prev_kv,
         )
         key_ranges = [KeyRange(key=key, range_end=range_end)]
-        propose_id = generate_propose_id(self.name)
 
         request_with_token = RequestWithToken(
             delete_range_request=req,
@@ -137,7 +129,6 @@ class KvClient:
         cmd = Command(
             keys=key_ranges,
             request=request_with_token,
-            propose_id=propose_id,
         )
         er, _ = await self.curp_client.propose(cmd, True)
         return er.delete_range_response
@@ -148,7 +139,6 @@ class KvClient:
         """
 
         return Txn(
-            self.name,
             self.curp_client,
             self.token,
         )
@@ -162,14 +152,12 @@ class KvClient:
             physical=physical,
         )
         use_fast_path = physical
-        propose_id = generate_propose_id(self.name)
         request_with_token = RequestWithToken(
             compaction_request=req,
             token=self.token,
         )
         cmd = Command(
             request=request_with_token,
-            propose_id=propose_id,
         )
 
         if use_fast_path:
@@ -181,9 +169,3 @@ class KvClient:
                 msg = "sync_res is always Some when use_fast_path is false"
                 raise Exception(msg)
             return er.compaction_response
-
-
-def generate_propose_id(prefix: str) -> str:
-    """Generate propose id with the given prefix"""
-    propose_id = f"{prefix}-{uuid.uuid4()}"
-    return propose_id

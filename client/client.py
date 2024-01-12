@@ -58,11 +58,11 @@ class Client:
         # TODO: Acquire the auth token
         id_gen = LeaseIdGenerator()
 
-        kv_client = KvClient("client", protocol_client, "")
-        lease_client = LeaseClient("client", protocol_client, channel, "", id_gen)
+        kv_client = KvClient(protocol_client, "")
+        lease_client = LeaseClient(protocol_client, channel, "", id_gen)
         watch_client = WatchClient(channel)
-        lock_client = LockClient("client", protocol_client, channel, "", id_gen)
-        auth_client = AuthClient("client", protocol_client, channel, "")
+        lock_client = LockClient(protocol_client, channel, "", id_gen)
+        auth_client = AuthClient(protocol_client, channel, "")
         maintenance_client = MaintenanceClient(channel)
 
         return cls(kv_client, lease_client, watch_client, lock_client, auth_client, maintenance_client)

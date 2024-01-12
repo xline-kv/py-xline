@@ -80,7 +80,6 @@ fmt = [
 ]
 all = [
   "style",
-  "typing",
 ]
 
 [tool.black]
@@ -133,6 +132,8 @@ ignore = [
   "A003",
   # Allow const use upercase
   "N806",
+  # Allow magic values
+  "S311",
 ]
 unfixable = [
   # Don't touch unused imports

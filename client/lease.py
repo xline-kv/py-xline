@@ -86,14 +86,13 @@ class LeaseClient:
     Client for Lease operations.
 
     Attributes:
-        name: Name of the LeaseClient, which will be used in CURP propose id generation.
         curp_client: The client running the CURP protocol, communicate with all servers.
         lease_client: The lease RPC client, only communicate with one server at a time.
         token: The auth token.
         id_gen: Lease Id generator.
+        keepers: Keep alive keepers.
     """
 
-    name: str
     curp_client: CurpClient
     lease_client: LeaseStub
     token: Optional[str]
@@ -101,9 +100,8 @@ class LeaseClient:
     keepers: dict[str, LeaseKeeper]
 
     def __init__(
-        self, name: str, curp_client: CurpClient, channel: Channel, token: Optional[str], id_gen: LeaseIdGenerator
+        self, curp_client: CurpClient, channel: Channel, token: Optional[str], id_gen: LeaseIdGenerator
     ) -> None:
-        self.name = name
         self.curp_client = curp_client
         self.lease_client = LeaseStub(channel=channel)
         self.token = token
@@ -119,10 +117,8 @@ class LeaseClient:
         if req.ID == 0:
             req.ID = self.id_gen.next()
         request_with_token = RequestWithToken(token=self.token, lease_grant_request=req)
-        propose_id = self.generate_propose_id()
         cmd = Command(
             request=request_with_token,
-            propose_id=propose_id,
         )
         er, _ = await self.curp_client.propose(cmd, True)
         return er.lease_grant_response
@@ -165,15 +161,8 @@ class LeaseClient:
         Lists all existing leases.
         """
         request_with_token = RequestWithToken(token=self.token, lease_leases_request=LeaseLeasesRequest())
-        propose_id = self.generate_propose_id()
         cmd = Command(
             request=request_with_token,
-            propose_id=propose_id,
         )
         er, _ = await self.curp_client.propose(cmd, True)
         return er.lease_leases_response
-
-    def generate_propose_id(self) -> str:
-        """Generate propose id with the given prefix."""
-        propose_id = f"{self.name}-{uuid.uuid4()}"
-        return propose_id
