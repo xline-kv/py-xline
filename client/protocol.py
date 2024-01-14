@@ -18,7 +18,12 @@ from api.curp.curp_command_pb2 import (
     FetchClusterRequest,
 )
 from api.curp.curp_command_pb2_grpc import ProtocolStub
-from client.error import ExecuteError
+from client.error import (
+    ExecuteError,
+    WrongClusterVersionError,
+    ShuttingDownError,
+    InternalError,
+)
 from api.xline.xline_command_pb2 import Command, CommandResponse, SyncResponse
 from api.xline.xline_error_pb2 import ExecuteError as _ExecuteError
 
@@ -82,6 +87,64 @@ class ProtocolClient:
         msg = "fetch cluster error"
         raise Exception(msg)
 
+    async def fetch_cluster(self, linearizable: bool) -> FetchClusterResponse:
+        """
+        Send fetch cluster requests to all servers
+        Note: The fetched cluster may still be outdated if `linearizable` is false
+        """
+        connects = self.all_connects()
+        rpcs: list[grpc.Future[FetchClusterResponse]] = []
+
+        for channel in connects:
+            stub = ProtocolStub(channel)
+            rpcs.append(stub.FetchCluster(FetchClusterRequest(linearizable=linearizable)))
+
+        max_term = 0
+        resp: FetchClusterResponse | None = None
+        ok_cnt = 0
+        majority_cnt = len(connects) // 2 + 1
+
+        for rpc in asyncio.as_completed(rpcs):
+            try:
+                res: FetchClusterResponse = await rpc
+            except grpc.RpcError as e:
+                logging.warning(e)
+                continue
+
+            if max_term < res.term:
+                max_term = res.term
+                if len(res.members) == 0:
+                    resp = res
+                ok_cnt = 1
+            elif max_term == res.term:
+                if len(res.members) == 0:
+                    resp = res
+                ok_cnt += 1
+            else:
+                pass
+
+            if ok_cnt >= majority_cnt:
+                break
+
+        if resp is not None:
+            logging.debug("Fetch cluster succeeded, result: %s", res)
+            self.state.check_and_update(res.leader_id, res.term)
+            return resp
+
+        # wait until the election is completed
+        # TODO: let user configure it according to average leader election cost
+
+        # TODO: retry
+
+    async def fetch_leader(self) -> ServerId:
+        """
+        Send fetch leader requests to all servers until there is a leader
+        Note: The fetched leader may still be outdated
+        """
+        # TODO: retry
+        res = await self.fetch_cluster(False)
+        return res.leader_id
+
     async def propose(self, cmd: Command, use_fast_path: bool = False) -> tuple[CommandResponse, SyncResponse | None]:
         """
         Propose the request to servers, if use_fast_path is false, it will wait for the synced index
@@ -100,7 +163,7 @@ class ProtocolClient:
         Fast path of propose
         """
         fast_round = self.fast_round(propose_id, cmd)
-        slow_round = self.slow_round(propose_id)
+        slow_round = self.slow_round(propose_id, cmd)
 
         # Wait for the fast and slow round at the same time
         for futures in asyncio.as_completed([fast_round, slow_round]):
@@ -124,7 +187,7 @@ class ProtocolClient:
         """
         Slow path of propose
         """
-        results = await asyncio.gather(self.fast_round(propose_id, cmd), self.slow_round(propose_id))
+        results = await asyncio.gather(self.fast_round(propose_id, cmd), self.slow_round(propose_id, cmd))
         for result in results:
             if isinstance(result[0], SyncResponse) and isinstance(result[1], CommandResponse):
                 return (result[1], result[0])
@@ -153,9 +216,15 @@ class ProtocolClient:
             res: ProposeResponse = ProposeResponse()
             try:
                 res = await future
-            except Exception as e:
+            except grpc.RpcError as e:
                 logging.warning(e)
-                continue
+                details = e.details()
+                if "shutting down" in details:
+                    raise ShuttingDownError from e
+                elif "Wrong cluster version" in details:
+                    raise WrongClusterVersionError from e
+                else:
+                    continue
 
             ok_cnt += 1
             if not res.HasField("result"):
@@ -178,7 +247,7 @@ class ProtocolClient:
         logging.info("fast round failed. propose id: %s", propose_id)
         return (cmd_res, False)
 
-    async def slow_round(self, propose_id: ProposeId) -> tuple[SyncResponse, CommandResponse]:
+    async def slow_round(self, propose_id: ProposeId, cmd: Command) -> tuple[SyncResponse, CommandResponse]:
         """
         The slow round of Curp protocol
         """
@@ -190,9 +259,29 @@ class ProtocolClient:
 
         channel = self.connects[self.state.leader]
         stub = ProtocolStub(channel)
-        res: WaitSyncedResponse = await stub.WaitSynced(
-            WaitSyncedRequest(propose_id=propose_id, cluster_version=self.cluster_version)
-        )
+
+        res = WaitSyncedResponse()
+        try:
+            res: WaitSyncedResponse = await stub.WaitSynced(
+                WaitSyncedRequest(propose_id=propose_id, cluster_version=self.cluster_version)
+            )
+        except grpc.RpcError as e:
+            logging.warning("wait synced rpc error: %s", e)
+            details = e.details()
+            if "shutting down" in details:
+                raise ShuttingDownError from e
+            if "wrong cluster version" in details:
+                raise WrongClusterVersionError from e
+            if "rpc transport" in details:
+                # it's quite likely that the leader has crashed,
+                # then we should wait for some time and fetch the leader again
+                # TODO: retry
+                self.resend_propose(propose_id, cmd, None)
+                # continue
+            if "redirect" in details:
+                # TODO redirect
+                pass
+            raise InternalError from e
 
         if res.after_sync_result.ok:
             asr.ParseFromString(res.after_sync_result.ok)
@@ -207,6 +296,45 @@ class ProtocolClient:
             raise exe_err
 
         return (asr, er)
+
+    def resend_propose(self, propose_id: ProposeId, cmd: Command, new_leader: ServerId | None) -> True | None:
+        """
+        Resend the propose only to the leader.
+        This is used when leader changes and we need to ensure that the propose is received by the new leader.
+        """
+        # TODO: retry
+
+        leader_id: int | None = None
+        if new_leader is not None:
+            _id = new_leader
+            try:
+                self.fetch_leader()
+                leader_id = _id
+            except Exception as e:
+                logging.warning("failed to fetch leader, %s", e)
+                # continue
+        logging.debug("resend propose to %s", leader_id)
+
+        stub = ProtocolStub(self.get_connect(leader_id))
+
+        try:
+            stub.Propose(
+                ProposeRequest(
+                    propose_id=propose_id, command=cmd.SerializeToString(), cluster_version=self.cluster_version
+                )
+            )
+        except grpc.RpcError as e:
+            # if the propose fails again, need to fetch the leader and try again
+            logging.warning("failed to resend propose, %s", e)
+
+            details = e.details()
+            if "shutting down" in details:
+                raise ShuttingDownError from e
+            if "wrong cluster version" in details:
+                raise WrongClusterVersionError from e
+            if "duplicated" in details:
+                return True
+            return None
 
     def gen_propose_id(self) -> ProposeId:
         """
@@ -231,6 +359,18 @@ class ProtocolClient:
         TODO: grant a client id from server
         """
         return random.randint(0, 2**64 - 1)
+
+    def all_connects(self) -> list[grpc.Channel]:
+        """
+        Get all connects
+        """
+        return list(self.connects.values())
+
+    def get_connect(self, _id: ServerId) -> grpc.Channel:
+        """
+        Get all connects
+        """
+        return self.connects[_id]
 
     @staticmethod
     def super_quorum(nodes: int) -> int:
@@ -258,9 +398,44 @@ class State:
         term: Current term
     """
 
-    leader: int
+    leader: int | None
     term: int
 
-    def __init__(self, leader: int, term: int) -> None:
+    def __init__(self, leader: int | None, term: int) -> None:
         self.leader = leader
         self.term = term
+
+    def check_and_update(self, leader_id: int | None, term: int):
+        """
+        Check the term and leader id, update the state if needed
+        """
+        if self.term < term:
+            # reset term only when the resp has leader id to prevent:
+            # If a server loses contact with its leader, it will update its term for election.
+            # Since other servers are all right, the election will not succeed.
+            # But if the client learns about the new term and updates its term to it, it will never get the true leader.
+            if leader_id is not None:
+                new_leader_id = leader_id
+                self.update_to_term(term)
+                self.set_leader(new_leader_id)
+        elif self.term == term:
+            if leader_id is not None:
+                new_leader_id = leader_id
+                if self.leader is None:
+                    self.set_leader(new_leader_id)
+        else:
+            pass
+
+    def update_to_term(self, term: int) -> None:
+        """
+        Update to the newest term and reset local cache
+        """
+        self.term = term
+        self.leader = None
+
+    def set_leader(self, _id: ServerId) -> None:
+        """
+        Set the leader and notify all the waiters
+        """
+        logging.debug("client update its leader to %s", _id)
+        self.leader = _id
