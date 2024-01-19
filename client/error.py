@@ -12,3 +12,21 @@ class ExecuteError(Exception):
 
     def __init__(self, err: _ExecuteError) -> None:
         self.inner = err
+
+
+class ShuttingDownError(Exception):
+    """Server is shutting down"""
+
+    pass
+
+
+class WrongClusterVersionError(Exception):
+    """Wrong cluster version"""
+
+    pass
+
+
+class InternalError(Exception):
+    """Internal Error in client"""
+
+    pass
