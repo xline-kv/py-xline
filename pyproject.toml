@@ -10,9 +10,7 @@ readme = "README.md"
 requires-python = ">=3.7"
 license = "Apache-2.0"
 keywords = []
-authors = [
-  { name = "LingKa", email = "cnfty786@gmail.com" },
-]
+authors = [{ name = "LingKa", email = "cnfty786@gmail.com" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
@@ -27,6 +25,7 @@ classifiers = [
 dependencies = [
   "grpcio==1.58.0",
   "grpcio-tools==1.58.0",
+  "grpcio-status==1.58.0",
   "pytest-asyncio",
   "passlib",
 ]
@@ -40,47 +39,24 @@ Source = "https://github.com/xline-kv/py-xline"
 path = "client/__about__.py"
 
 [tool.hatch.envs.default]
-dependencies = [
-  "coverage[toml]>=6.5",
-  "pytest",
-]
+dependencies = ["coverage[toml]>=6.5", "pytest"]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
-cov-report = [
-  "- coverage combine",
-  "coverage report",
-  "coverage xml",
-]
-cov = [
-  "test-cov",
-  "cov-report",
-]
+cov-report = ["- coverage combine", "coverage report", "coverage xml"]
+cov = ["test-cov", "cov-report"]
 
 [[tool.hatch.envs.all.matrix]]
 python = ["3.7", "3.8", "3.9", "3.10", "3.11"]
 
 [tool.hatch.envs.lint]
 detached = true
-dependencies = [
-  "black>=23.1.0",
-  "mypy>=1.0.0",
-  "ruff>=0.0.243",
-]
+dependencies = ["black>=23.1.0", "mypy>=1.0.0", "ruff>=0.0.243"]
 [tool.hatch.envs.lint.scripts]
 typing = "mypy --install-types --non-interactive {args:client tests}"
-style = [
-  "ruff {args:.}",
-  "black --check --diff {args:.}",
-]
-fmt = [
-  "black {args:.}",
-  "ruff --fix {args:.}",
-  "style",
-]
-all = [
-  "style",
-]
+style = ["ruff {args:.}", "black --check --diff {args:.}"]
+fmt = ["black {args:.}", "ruff --fix {args:.}", "style"]
+all = ["style"]
 
 [tool.black]
 target-version = ["py37"]
@@ -121,13 +97,21 @@ ignore = [
   # Allow non-abstract empty methods in abstract base classes
   "B027",
   # Allow boolean positional values in function calls, like `dict.get(... True)`
-  "FBT001", "FBT002", "FBT003",
+  "FBT001",
+  "FBT002",
+  "FBT003",
   # Ignore checks for possible passwords
-  "S105", "S106", "S107",
+  "S105",
+  "S106",
+  "S107",
   # Ignore complexity
-  "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+  "C901",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
   # Ignore import sort
-  "I001", 
+  "I001",
   # Allow verable shadow
   "A003",
   # Allow const use upercase
@@ -154,20 +138,14 @@ ban-relative-imports = "all"
 source_pkgs = ["client", "tests"]
 branch = true
 parallel = true
-omit = [
-  "client/__about__.py",
-]
+omit = ["client/__about__.py"]
 
 [tool.coverage.paths]
 py_xline = ["client"]
 tests = ["tests"]
 
 [tool.coverage.report]
-exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["client"]
