@@ -159,6 +159,6 @@ class Retry:
                     self.inner.update_leader(leader_id, term)
 
                 last_err = e
-                time.sleep(delay)
+                time.sleep(delay.total_seconds())
 
         raise CurpError(_CurpError(Internal=f"request timeout, last error: {last_err}"))
