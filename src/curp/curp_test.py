@@ -2,8 +2,10 @@
 Test for curp client
 """
 
+from datetime import timedelta
 import pytest
 from src.curp.unary import UnaryBuilder, UnaryConfig
+from src.curp.retry import Retry, RetryConfig
 from src.rpc.type import CurpError
 from curp_command_pb2 import ProposeId
 from api.xline.xline_command_pb2 import Command, CommandResponse, SyncResponse
@@ -235,3 +237,44 @@ async def test_unary_propose_return_early_err():
         await unary.repeatable_propose(ProposeId(seq_num=9), Command())
     except CurpError as e:
         assert isinstance(e, CurpError)
+
+
+@pytest.mark.asyncio
+async def test_retry_propose_return_no_retry_error():
+    """
+    Test retry propose return no retry error
+    """
+    all_members = {
+        0: ["127.0.0.1:48081"],
+        1: ["127.0.0.1:48082"],
+        2: ["127.0.0.1:48083"],
+        3: ["127.0.0.1:48084"],
+        4: ["127.0.0.1:48085"],
+    }
+    config = UnaryConfig(1, 2)
+    unary = UnaryBuilder(all_members, config).set_leader_state(0, 1).build()
+    retry = Retry(unary, RetryConfig.new_fixed(timedelta(milliseconds=100), 3))
+    try:
+        await retry.propose(Command(), use_fast_path=False)
+    except CurpError as e:
+        assert e.inner.HasField("ShuttingDown")
+
+@pytest.mark.asyncio
+async def test_retry_propose_return_retry_error():
+    """
+    Test retry propose return retry error
+    """
+    all_members = {
+        0: ["127.0.0.1:48081"],
+        1: ["127.0.0.1:48082"],
+        2: ["127.0.0.1:48083"],
+        3: ["127.0.0.1:48084"],
+        4: ["127.0.0.1:48085"],
+    }
+    config = UnaryConfig(1, 2)
+    unary = UnaryBuilder(all_members, config).set_leader_state(0, 1).build()
+    retry = Retry(unary, RetryConfig.new_fixed(timedelta(milliseconds=100), 3))
+    try:
+        await retry.propose(Command(), use_fast_path=False)
+    except CurpError as e:
+        assert e.inner.HasField("Internal")
