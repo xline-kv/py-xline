@@ -216,6 +216,12 @@ class Unary:
             raise curp_err
 
         raise CurpError(_CurpError(RpcTransport=Empty()))
+    
+    def update_leader(self, leader_id: int | None, term: int) -> bool:
+        """
+        Update leader
+        """
+        return self.check_and_update_leader(self.__state, leader_id, term)
 
     def check_and_update(self, res: FetchClusterResponse) -> None:
         """
